@@ -30,6 +30,8 @@ public class SettingService implements ApplicationRunner {
     @Value("${nav-name}")
     private String navName;
 
+    private String logoPath;
+
     private boolean countdown;
 
     private Integer cutOverSpeed;
@@ -40,6 +42,10 @@ public class SettingService implements ApplicationRunner {
         if (StringUtils.isBlank(setting.getNavName())) {
             // 加载默认配置，兼容老版本
             setting.setNavName(navName);
+            settingRepository.save(setting);
+        }
+        if (StringUtils.isBlank(setting.getLogoPath())) {
+            setting.setLogoPath("/assets/images/logo.png");
             settingRepository.save(setting);
         }
         this.settingChange(setting);
@@ -82,6 +88,15 @@ public class SettingService implements ApplicationRunner {
     }
 
     /**
+     * getLogoPath
+     *
+     * @return String
+     */
+    public String getLogoPath() {
+        return logoPath;
+    }
+
+    /**
      * get
      *
      * @return Setting
@@ -109,6 +124,7 @@ public class SettingService implements ApplicationRunner {
         this.navName = setting.getNavName();
         this.countdown = BooleanUtils.isTrue(setting.getCountdown());
         this.cutOverSpeed = setting.getCutOverSpeed();
+        this.logoPath = setting.getLogoPath();
     }
 
 }
