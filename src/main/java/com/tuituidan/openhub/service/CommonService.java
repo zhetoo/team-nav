@@ -1,11 +1,17 @@
 package com.tuituidan.openhub.service;
 
+import com.tuituidan.openhub.bean.dto.CardIconDto;
+import com.tuituidan.openhub.bean.dto.LoginDto;
+import com.tuituidan.openhub.bean.entity.Card;
+import com.tuituidan.openhub.bean.entity.ISortEntity;
 import com.tuituidan.openhub.consts.Consts;
 import com.tuituidan.openhub.exception.ResourceReadException;
 import com.tuituidan.openhub.exception.ResourceWriteException;
+import com.tuituidan.openhub.repository.CardRepository;
 import com.tuituidan.openhub.util.FileExtUtils;
 import com.tuituidan.openhub.util.QrCodeUtils;
 import com.tuituidan.openhub.util.RequestUtils;
+import com.tuituidan.openhub.util.SecurityUtils;
 import com.tuituidan.openhub.util.StringExtUtils;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -18,12 +24,17 @@ import java.net.URLConnection;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Resource;
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
@@ -37,7 +48,12 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -57,7 +73,13 @@ public class CommonService implements ApplicationRunner {
 
     private static final List<String> CARD_ICONS = new ArrayList<>();
 
-    private static final String CARD_ICON_PATH = Consts.ROOT_DIR + "/ext-resources/images/default";
+    private static final String CARD_ICON_PATH = "/ext-resources/images/default/";
+
+    @Resource
+    private CardRepository cardRepository;
+
+    @Resource
+    private AuthenticationManager authenticationManager;
 
     /**
      * 初始化
@@ -91,7 +113,7 @@ public class CommonService implements ApplicationRunner {
      */
     public void loadCardIcons() {
         CARD_ICONS.clear();
-        File root = new File(CARD_ICON_PATH);
+        File root = new File(Consts.ROOT_DIR + CARD_ICON_PATH);
         if (!root.exists()) {
             return;
         }
@@ -112,11 +134,7 @@ public class CommonService implements ApplicationRunner {
      * @return 保存路径
      */
     public String upload(MultipartFile file, String type) {
-        String savePath = StringExtUtils.format("/ext-resources/{}/{}/{}.{}",
-                type,
-                DateTimeFormatter.BASIC_ISO_DATE.format(LocalDate.now()),
-                StringExtUtils.getUuid(),
-                FilenameUtils.getExtension(file.getOriginalFilename()));
+        String savePath = formatSavePath(type, file);
         File saveFile = new File(Consts.ROOT_DIR + savePath);
         try {
             FileUtils.forceMkdirParent(saveFile);
@@ -129,7 +147,84 @@ public class CommonService implements ApplicationRunner {
         } catch (Exception ex) {
             throw new ResourceWriteException("文件写入失败", ex);
         }
+        if ("default".equals(type)) {
+            CARD_ICONS.add(file.getOriginalFilename());
+        }
         return savePath;
+    }
+
+    private String formatSavePath(String type, MultipartFile file) {
+        String fileName = file.getOriginalFilename();
+        if ("default".equals(type)) {
+            String path = CARD_ICON_PATH + fileName;
+            Assert.isTrue(!new File(Consts.ROOT_DIR + path).exists(), "文件名已经存在");
+            return path;
+        }
+        return StringExtUtils.format("/ext-resources/{}/{}/{}.{}",
+                type,
+                DateTimeFormatter.BASIC_ISO_DATE.format(LocalDate.now()),
+                StringExtUtils.getUuid(),
+                FilenameUtils.getExtension(fileName));
+    }
+
+    /**
+     * 修改icon文件名
+     *
+     * @param fileName fileName
+     * @param newName newName
+     */
+    public void updateIconName(String fileName, String newName) {
+        String root = Consts.ROOT_DIR + CARD_ICON_PATH;
+        File oldFile = new File(root + fileName);
+        String newFileName = newName + "." + FilenameUtils.getExtension(fileName);
+        File newFile = new File(root + newFileName);
+        Assert.isTrue(oldFile.exists(), "原图标已不存在");
+        Assert.isTrue(!newFile.exists(), "无法修改为图标名【" + newName + "】，该图标名已存在");
+        Assert.isTrue(oldFile.renameTo(newFile), "文件名修改失败");
+        CARD_ICONS.set(CARD_ICONS.indexOf(fileName), newFileName);
+        resetRefIcon(fileName, newFileName);
+    }
+
+    private void resetRefIcon(String fileName, String newFileName) {
+        List<Card> updateList = cardRepository.findAll().stream()
+                .filter(item -> Objects.nonNull(item.getIcon())
+                        && StringUtils.isNotBlank(item.getIcon().getSrc())
+                        && StringUtils.contains(item.getIcon().getSrc(), "default")
+                        && StringUtils.endsWith(item.getIcon().getSrc(), fileName)
+                ).map(card -> {
+                    CardIconDto icon = card.getIcon();
+                    icon.setSrc(icon.getSrc().replace(fileName, newFileName));
+                    return card;
+                }).collect(Collectors.toList());
+        if (CollectionUtils.isNotEmpty(updateList)) {
+            cardRepository.saveAll(updateList);
+        }
+    }
+
+    /**
+     * 图标删除
+     *
+     * @param fileName fileName
+     * @throws IOException IOException
+     */
+    public void deleteDefaultIcon(String fileName) throws IOException {
+        File file = new File(Consts.ROOT_DIR + CARD_ICON_PATH + fileName);
+        if (file.exists()) {
+            checkIconRef(fileName);
+            FileUtils.forceDelete(file);
+            CARD_ICONS.removeIf(name -> StringUtils.equals(fileName, name));
+        }
+    }
+
+    private void checkIconRef(String fileName) {
+        List<String> list = cardRepository.findAll().stream()
+                .filter(item -> Objects.nonNull(item.getIcon())
+                        && StringUtils.isNotBlank(item.getIcon().getSrc())
+                        && StringUtils.contains(item.getIcon().getSrc(), "default")
+                        && StringUtils.endsWith(item.getIcon().getSrc(), fileName)
+                ).map(Card::getTitle).collect(Collectors.toList());
+        Assert.isTrue(CollectionUtils.isEmpty(list), "图标已被卡片【"
+                + StringUtils.join(list, ",") + "】使用，不能删除");
     }
 
     /**
@@ -263,6 +358,53 @@ public class CommonService implements ApplicationRunner {
         } catch (Exception ex) {
             throw new ResourceWriteException("二维码写入失败");
         }
+    }
+
+    /**
+     * changeSort
+     *
+     * @param supplier supplier
+     * @param before before
+     * @param after after
+     * @param <T> T
+     * @return List
+     */
+    public <T extends ISortEntity<T>> List<T> changeSort(Supplier<List<T>> supplier, int before, int after) {
+        if (before == after) {
+            return Collections.emptyList();
+        }
+        LinkedList<T> list = new LinkedList<>(supplier.get());
+        if (CollectionUtils.isEmpty(list) || list.size() == 1) {
+            return Collections.emptyList();
+        }
+        list.add(after, list.remove(before));
+        List<T> updateList = new ArrayList<>();
+        int index = 0;
+        for (T item : list) {
+            if (!Objects.equals(item.getSort(), index)) {
+                updateList.add(item.setSort(index));
+            }
+            index++;
+        }
+        return updateList;
+    }
+
+    /**
+     * quickLogin
+     *
+     * @param loginDto loginDto
+     * @return boolean
+     */
+    public boolean quickLogin(LoginDto loginDto) {
+        if (SecurityUtils.getUserInfo() != null) {
+            return false;
+        }
+        UsernamePasswordAuthenticationToken token
+                = new UsernamePasswordAuthenticationToken(loginDto.getUsername(), loginDto.getPassword());
+        Authentication authenticate = authenticationManager.authenticate(token);
+        Assert.notNull(authenticate, "登录失败");
+        SecurityContextHolder.getContext().setAuthentication(authenticate);
+        return SecurityUtils.getUserInfo() != null;
     }
 
 }

@@ -42,9 +42,6 @@ public class Setting implements Serializable {
     @Column(name = "C_NAV_NAME", length = 200)
     private String navName;
 
-    @Column(name = "C_COUNTDOWN")
-    private Boolean countdown;
-
     @Column(name = "N_CUTOVER_SPEED")
     private Integer cutOverSpeed;
 
@@ -53,4 +50,7 @@ public class Setting implements Serializable {
 
     @Column(name = "C_LOGO_TO_FAVICON")
     private Boolean logoToFavicon;
+
+    @Column(name = "C_LAYOUTSIZE", length = 50)
+    private String layoutSize;
 }

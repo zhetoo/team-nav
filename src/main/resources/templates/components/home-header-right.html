@@ -9,23 +9,22 @@
                     <Icon :size="26" v-if="fullScreen" @click="setNotFullScreen" type="md-contract"></Icon>
                 </Tooltip>
             </div>
-            <div>
+            <div class="header-right-item">
                 <Tooltip content="布局大小">
-                    <Dropdown  class="header-right-item"
-                               @on-click="changeLayoutSize"
+                    <Dropdown  @on-click="changeLayoutSize"
                                trigger="click"
                                transfer>
                         <Icon :size="26" type="ios-appstore"></Icon>
                         <dropdown-menu slot="list">
                             <dropdown-item name="big-layout" :selected="!isSmallLayout">较大</dropdown-item>
-                            <dropdown-item name="small-layout" :selected="isSmallLayout">中等</dropdown-item>
+                            <dropdown-item name="small-layout" :selected="isSmallLayout">较小</dropdown-item>
                         </dropdown-menu>
                     </Dropdown>
                 </Tooltip>
             </div>
-            <div class="header-right-item">
+            <div class="header-right-item" @click="gotoAdmin">
                 <Tooltip content="后台管理">
-                    <Icon :size="26" type="md-settings" @click="gotoAdmin"></Icon>
+                    <Icon :size="26" type="md-settings"></Icon>
                 </Tooltip>
             </div>
         </div>
@@ -36,15 +35,18 @@
             data() {
                 return {
                     fullScreen: false,
-                    isSmallLayout: localStorage.layoutSize === 'small-layout',
                 }
+            },
+            computed: {
+                isSmallLayout() {
+                    return localStorage.layoutSize === 'small-layout'
+                },
             },
             methods: {
                 setFullScreen() {
                     if (document.documentElement.RequestFullScreen) {
                         document.documentElement.RequestFullScreen();
                     }
-                    console.log(document.documentElement.mozRequestFullScreen)
                     if (document.documentElement.mozRequestFullScreen) {
                         document.documentElement.mozRequestFullScreen();
                     }
@@ -60,7 +62,6 @@
                     if (document.exitFullScreen) {
                         document.exitFullscreen()
                     }
-                    console.log(document.mozExitFullScreen)
                     if (document.mozCancelFullScreen) {
                         document.mozCancelFullScreen()
                     }

@@ -44,8 +44,8 @@ public class ViewController {
         request.setAttribute("logoToFavicon", settingCache.getLogoToFavicon());
         request.setAttribute("logoPath", settingCache.getLogoPath());
         request.setAttribute("isIe", RequestUtils.isIe());
-        request.setAttribute("countdown", settingCache.getCountdown());
         request.setAttribute("cutOverSpeed", settingCache.getCutOverSpeed());
+        request.setAttribute("layoutSize", settingCache.getLayoutSize());
         return "index";
     }
 
@@ -84,7 +84,6 @@ public class ViewController {
         request.setAttribute("loginEnable", SecurityUtils.isLoginEnable());
         request.setAttribute("changePwdEnable", changePwdEnable);
         request.setAttribute("projectVersion", projectVersion);
-        request.setAttribute("countdown", settingCache.getCountdown());
         request.setAttribute("isIe", RequestUtils.isIe());
         return "admin";
     }

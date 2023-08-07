@@ -8,7 +8,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * CountdownDto.
+ * NoticeDto.
  *
  * @author tuituidan
  * @version 1.0
@@ -17,10 +17,12 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-public class CountdownDto {
+public class NoticeDto {
 
-    private String prefixText;
+    private String content;
 
     @JsonFormat(shape = Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime endTime;
+
+    private Integer sort;
 }

@@ -43,6 +43,10 @@ public class SettingService implements ApplicationRunner {
             setting.setLogoPath(Consts.DEFAULT_LOGO_PATH);
             settingRepository.save(setting);
         }
+        if (StringUtils.isBlank(setting.getLayoutSize())) {
+            setting.setLayoutSize("small-layout");
+            settingRepository.save(setting);
+        }
         this.settingChange(setting);
     }
 
@@ -85,7 +89,6 @@ public class SettingService implements ApplicationRunner {
                 && StringUtils.isNotBlank(setting.getNginxUrl())
                 ? setting.getNginxUrl() : StringUtils.EMPTY);
         settingCache.setNavName(setting.getNavName());
-        settingCache.setCountdown(BooleanUtils.isTrue(setting.getCountdown()));
         settingCache.setLogoToFavicon(BooleanUtils.isTrue(setting.getLogoToFavicon()));
         settingCache.setCutOverSpeed((setting.getCutOverSpeed() == null ? 10 : setting.getCutOverSpeed()) * 1000);
         settingCache.setLogoPath(setting.getLogoPath());
